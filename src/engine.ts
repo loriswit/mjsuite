@@ -4,10 +4,7 @@ import {github, GitRef} from "./services/github.js"
 import {docker} from "./services/docker.js"
 import {mkdir, readdir, rename, rm} from "fs/promises"
 import tar from "tar"
-
-function clearLine() {
-    process.stdout.write(`\r${" ".repeat(process.stdout.columns)}\r`)
-}
+import {logger} from "./utils/logger.js"
 
 const CACHE_PATH = resolve(PKG_ROOT, "engines", "cache")
 
@@ -40,25 +37,25 @@ export class Engine {
     }
 
     public async setup() {
-        console.log(`Setting up new engine: ${this.config.name} (${this.config.version})`)
+        logger.info(`Setting up new engine: ${this.config.name} (${this.config.version})`)
 
-        if(!this.ref) this.ref = await this.fetchRef()
+        if (!this.ref) this.ref = await this.fetchRef()
         const enginePath = resolve(CACHE_PATH, this.ref.object.sha)
 
         // download source code if not available
         if (existsSync(enginePath))
-            console.log("> Source code found in cache")
+            logger.info("> Source code found in cache")
         else
             await this.download()
 
         // build Docker image
         await this.build()
 
-        console.log(`Engine ${this.config.name} has been setup successfully`)
+        logger.info(`Engine ${this.config.name} has been setup successfully`)
     }
 
     public async download() {
-        if(!this.ref) this.ref = await this.fetchRef()
+        if (!this.ref) this.ref = await this.fetchRef()
 
         // create cache folders if they don't exist yet
         const tmpPath = resolve(CACHE_PATH, "tmp")
@@ -67,13 +64,13 @@ export class Engine {
         await mkdir(downloadPath, {recursive: true})
 
         if (this.config.clone) {
-            console.log("> Cloning source code")
+            logger.info("> Cloning source code")
             await github.clone(this.config.repository, {branch: this.config.version, depth: 1}, downloadPath)
 
         } else {
-            console.log("> Downloading source code")
+            logger.info("> Downloading source code")
             const file = await github.downloadTarball(this.config.repository, this.ref, tmpPath)
-            console.log("> Extracting source code")
+            logger.info("> Extracting source code")
             await tar.extract({file, cwd: downloadPath})
         }
 
@@ -84,9 +81,9 @@ export class Engine {
     }
 
     public async build() {
-        if(!this.ref) this.ref = await this.fetchRef()
+        if (!this.ref) this.ref = await this.fetchRef()
 
-        console.log("> Building image (this may take a while)")
+        logger.info("> Building image (this may take a while)")
         const srcPath = `cache/${this.ref.object.sha}`
         const dockerfile = `${this.id}/Dockerfile`
         const buildStream = await docker.buildImage({
@@ -103,27 +100,28 @@ export class Engine {
                 (err, res) => {
                     if (err) reject(err)
                     else {
-                        clearLine()
+                        logger.clearLine()
                         resolve(res)
                     }
                 },
-                obj => {
-                    if (obj.stream) {
-                        const match = obj.stream.match(/^Step (\d+)\/(\d+)/)
+                progress => {
+                    if (progress.stream) {
+                        const match = progress.stream.match(/^Step (\d+)\/(\d+)/)
                         if (match) {
-                            clearLine()
-                            process.stdout.write("  > " + obj.stream.trim())
-                        }
-                    } else if (obj.error) {
-                        clearLine()
-                        console.error(obj.error)
-                        console.error(obj.errorDetail)
-                        reject(obj.error)
-                    }
+                            logger.info("  > " + progress.stream.trim(), {raw: true, clearLine: true})
+                        } else
+                            logger.debug("  > " + progress.stream, {raw: true})
+                    } else if (progress.error) {
+                        logger.clearLine()
+                        logger.error(progress.error)
+                        logger.error(progress.errorDetail)
+                        reject(progress.error)
+                    } else
+                        logger.debug(progress)
                 })
         })
 
-        console.log("> Removing build cache")
+        logger.info("> Removing build cache")
         await docker.pruneImages({dangling: true})
     }
 
@@ -143,7 +141,7 @@ export class Engine {
     }
 
     private async fetchRef() {
-        console.log("> Fetching repository")
+        logger.info("> Fetching repository")
         return await github.getRef(this.config.repository, {tags: this.config.version})
     }
 }

@@ -1,11 +1,10 @@
 import {docker} from "./docker.js"
-import {createWriteStream} from "fs"
 import {resolve} from "path"
 import {writeFile} from "fs/promises"
+import {logger} from "../utils/logger.js"
 
 const GITHUB_API_ROOT = "https://api.github.com"
 const GIT_IMAGE = "alpine/git"
-const NULL_STREAM = createWriteStream(process.platform === "win32" ? "\\\\.\\NUL" : "/dev/null")
 
 export type GitOptions = Record<string, string | boolean | number>
 export type GitRef = { object: { sha: string } }
@@ -21,7 +20,7 @@ export class GitHub {
 
         const url = `https://github.com/${repository}.git`
         const cmd = ["clone", ...this.formatOptions(options), url]
-        const [output, container] = await docker.run("alpine/git", cmd, NULL_STREAM,
+        const [output, container] = await docker.run("alpine/git", cmd, logger.stream.debug,
             {HostConfig: {Mounts: [{Type: "bind", Source: destinationPath, Target: "/git"}]}})
 
         await container.remove
