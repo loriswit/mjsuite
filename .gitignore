@@ -1,0 +1,12 @@
+# engines source code
+engines/cache/
+
+# dependencies
+node_modules/
+
+# build files
+build/
+
+# IDE config
+.idea/
+.vscode/

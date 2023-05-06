@@ -1,0 +1,20 @@
+{
+  "name": "mjsuite",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "ts-node src/main.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "dockerode": "^3.3.5",
+    "tar": "^6.1.14"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.17",
+    "@types/tar": "^6.1.4",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4"
+  }
+}
