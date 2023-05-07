@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -e
+
+NODE_IMAGE=node:18-slim
+ROOT_DIR=$(realpath "$(dirname "$0")/..")
+
+if [ ! -d "$ROOT_DIR"/build ]; then
+    docker run --rm --name mjsuite \
+        -v "$ROOT_DIR":/mjsuite \
+        $NODE_IMAGE /mjsuite/bin/setup "$@"
+fi
+
+docker run --rm --name mjsuite \
+    -v "$ROOT_DIR":/mjsuite \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    $NODE_IMAGE /mjsuite/build/main "$@"
