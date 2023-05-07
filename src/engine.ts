@@ -1,10 +1,12 @@
 import {existsSync, readFileSync} from "fs"
-import {resolve} from "path"
+import {dirname, resolve} from "path"
 import {github, GitRef} from "./services/github.js"
 import {docker} from "./services/docker.js"
-import {mkdir, readdir, rename, rm} from "fs/promises"
+import {mkdir, readdir, rename, rm, unlink, writeFile} from "fs/promises"
 import tar from "tar"
 import {logger} from "./utils/logger.js"
+import {Workload} from "./workload"
+import {Writable} from "stream"
 
 const CACHE_PATH = resolve(PKG_ROOT, "engines", "cache")
 
@@ -16,7 +18,8 @@ export interface EngineConfig {
 }
 
 export class Engine {
-    private readonly id: string
+    public readonly id: string
+
     private readonly imageName: string
     private readonly config: EngineConfig
     private ref: GitRef | undefined
@@ -121,18 +124,70 @@ export class Engine {
                 })
         })
 
-        logger.info("> Removing build cache")
+        logger.info("> Removing build cache", {clearLine: true})
         await docker.pruneImages({dangling: true})
     }
 
-    public async run() {
+    /**
+     * Starts the engine and executes a workload, if provided.
+     * @param workload The workload to run
+     */
+    public async run(workload?: Workload) {
         if (!await docker.imageExists(this.imageName))
             await this.setup()
 
-        const [output, container] = await docker.run(this.imageName, [], process.stdout)
-        await container.remove()
+        let exitCode: number
 
-        if (output.StatusCode !== 0)
+        if (workload) {
+            logger.info(`Running workload '${workload.id}' with engine ${this.name}`)
+
+            const filename = `${workload.id}__${this.id}__${new Date().getTime()}.tmp.js`
+            const workloadFile = resolve(PKG_ROOT, "workloads", "tmp", filename)
+            await mkdir(dirname(workloadFile), {recursive: true})
+            await writeFile(workloadFile, workload.compile(this))
+
+            let result = NaN
+            const containerStream = new Writable({
+                write: (chunk: Buffer, _, next) => {
+                    logger.debug(chunk, {raw: true})
+                    const time = chunk.toString().trim().split("\n")
+                        .filter(line => line.match(/^\d+/)).pop()
+                    if (time)
+                        result = Number.parseInt(time)
+                    next()
+                },
+            })
+
+            // if μJSuite is running inside Docker, use host path as mount source
+            const mountSourcePath = process.env.MOUNT_SRC
+                ? workloadFile.replace(PKG_ROOT, process.env.MOUNT_SRC)
+                : workloadFile
+
+            ;[{StatusCode: exitCode}] = (await docker.run(this.imageName,
+                ["/mjsuite/workload.js"], containerStream,
+                {
+                    HostConfig: {
+                        Mounts: [{
+                            Type: "bind",
+                            Source: mountSourcePath,
+                            Target: "/mjsuite/workload.js",
+                        }],
+                        AutoRemove: true,
+                    },
+                }))
+
+            await unlink(workloadFile)
+            logger.info(`> Workload finished in ${result} ms`)
+
+        } else {
+            logger.info(`Running engine ${this.name}`)
+
+            ;[{StatusCode: exitCode}] = await docker.run(this.imageName, [],
+                [logger.stream.info, logger.stream.error],
+                {Tty: false, HostConfig: {AutoRemove: true}})
+        }
+
+        if (exitCode !== 0)
             throw new Error("Failed to run engine")
     }
 

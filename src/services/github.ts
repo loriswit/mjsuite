@@ -20,8 +20,13 @@ export class GitHub {
 
         const url = `https://github.com/${repository}.git`
         const cmd = ["clone", ...this.formatOptions(options), url]
+        // if μJSuite is running inside Docker, use host path as mount source
+        const mountSourcePath = process.env.MOUNT_SRC
+            ? destinationPath.replace(PKG_ROOT, process.env.MOUNT_SRC)
+            : destinationPath
+
         const [output, container] = await docker.run("alpine/git", cmd, logger.stream.debug,
-            {HostConfig: {Mounts: [{Type: "bind", Source: destinationPath, Target: "/git"}]}})
+            {HostConfig: {Mounts: [{Type: "bind", Source: mountSourcePath, Target: "/git"}]}})
 
         await container.remove
         if (output.StatusCode !== 0)

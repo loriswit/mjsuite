@@ -1,6 +1,9 @@
 # engines source code
 engines/cache/
 
+# compiled workloads
+workloads/tmp/
+
 # dependencies
 node_modules/
 
