@@ -146,14 +146,11 @@ export class Engine {
             await mkdir(dirname(workloadFile), {recursive: true})
             await writeFile(workloadFile, workload.compile(this))
 
-            let result = NaN
+            let output = ""
             const containerStream = new Writable({
                 write: (chunk: Buffer, _, next) => {
                     logger.debug(chunk, {raw: true})
-                    const time = chunk.toString().trim().split("\n")
-                        .filter(line => line.match(/^\d+/)).pop()
-                    if (time)
-                        result = Number.parseInt(time)
+                    output += chunk.toString()
                     next()
                 },
             })
@@ -163,8 +160,10 @@ export class Engine {
                 ? workloadFile.replace(PKG_ROOT, process.env.MOUNT_SRC)
                 : workloadFile
 
-            ;[{StatusCode: exitCode}] = (await docker.run(this.imageName,
-                ["/mjsuite/workload.js"], containerStream,
+            ;[{StatusCode: exitCode}] = (await docker.run(
+                this.imageName,
+                ["/mjsuite/workload.js"],
+                containerStream,
                 {
                     HostConfig: {
                         Mounts: [{
@@ -173,11 +172,19 @@ export class Engine {
                             Target: "/mjsuite/workload.js",
                         }],
                         AutoRemove: true,
+                        SecurityOpt: ["seccomp=unconfined"],
                     },
                 }))
 
             await unlink(workloadFile)
-            logger.info(`> Workload finished in ${result} ms`)
+
+            const perfStat = output.split(/\n(?=\S)/).pop() // get last line
+            const taskClock = perfStat?.split(",")[3]
+            if (taskClock) {
+                const result = Number.parseInt(taskClock) / 1000000
+                logger.info(`> Workload finished in ${result} ms`)
+            } else
+                throw new Error("Failed to measure task duration")
 
         } else {
             logger.info(`Running engine ${this.name}`)

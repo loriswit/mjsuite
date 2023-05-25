@@ -9,15 +9,9 @@ let data = [
     "departure", "sister", "introduction", "entry", "sample",
 ]
 
-const start = new Date().getTime()
-
 for (let i = 0; i < 100000; ++i)
     data.sort()
-
-const time = new Date().getTime() - start
 
 console.log(data[0] === "1234")
 console.log(data[1] === "Affair")
 console.log(data[data.length - 1] === "warning")
-
-console.log(time)

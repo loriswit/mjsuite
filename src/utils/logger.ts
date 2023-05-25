@@ -10,7 +10,7 @@ export type LogFunctions = "debug" | "info" | "warn" | "error"
 
 export type LoggerStreams = Record<LogFunctions, Writable>
 
-export type LogMessage = string | number | boolean | object
+export type LogMessage = string | number | boolean | object | undefined
 
 export enum LogColor {
     BLACK = 30,
@@ -71,7 +71,6 @@ export class Logger {
 
     private write(stream: NodeJS.WriteStream, msg: LogMessage, options: LoggerOptions, color?: number) {
         if (options.clearLine) this.clearLine()
-        if (typeof msg === "undefined") return
 
         if (options.color) stream.write(`\x1b[${options.color}m`)
         else if (color) stream.write(`\x1b[${color}m`)
@@ -80,6 +79,7 @@ export class Logger {
         try {
             let msgStr: string
             if (msg === null) msgStr = "null"
+            else if (typeof msg === "undefined") msgStr = "undefined"
             else if (msg.constructor == Buffer) msgStr = msg.toString()
             else if (typeof msg === "object") msgStr = JSON.stringify(msg)
             else msgStr = msg.toString()
