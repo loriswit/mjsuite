@@ -8,6 +8,7 @@
     "build": "tsc"
   },
   "dependencies": {
+    "commander": "^10.0.1",
     "dockerode": "^3.3.5",
     "tar": "^6.1.14"
   },

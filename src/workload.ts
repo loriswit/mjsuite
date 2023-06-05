@@ -1,6 +1,6 @@
 import {existsSync, readFileSync} from "fs"
 import {resolve} from "path"
-import {Engine} from "./engine"
+import {Engine} from "./engine.js"
 import {logger} from "./utils/logger.js"
 
 export class Workload {
@@ -27,7 +27,7 @@ export class Workload {
 
         const templateFile = resolve(PKG_ROOT, "engines", engine.id, "template.js")
         if (!existsSync(templateFile)) {
-            logger.debug(`No workload template found for ${engine.id}\n> ${templateFile})`)
+            logger.debug(`No workload template found for ${engine.id}\n> ${templateFile}`)
             return this.sourceCode
         }
 

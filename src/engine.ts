@@ -5,7 +5,7 @@ import {docker} from "./services/docker.js"
 import {mkdir, readdir, rename, rm, unlink, writeFile} from "fs/promises"
 import tar from "tar"
 import {logger} from "./utils/logger.js"
-import {Workload} from "./workload"
+import {Workload} from "./workload.js"
 import {Writable} from "stream"
 
 const CACHE_PATH = resolve(PKG_ROOT, "engines", "cache")

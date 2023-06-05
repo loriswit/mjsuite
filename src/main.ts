@@ -1,31 +1,46 @@
+import {program} from "commander"
+
 import "./utils/globals.js"
-import {Engine} from "./engine.js"
 import {logger, LogLevel} from "./utils/logger.js"
-import {Workload} from "./workload.js";
+import {Engine} from "./engine.js"
+import {Workload} from "./workload.js"
 
-try {
-    if (process.argv.length < 4)
-        throw new Error("usage: mjsuite <engine> <workload> [--debug]")
+program
+    .name("mjsuite")
+    .description("μJSuite is a tool to benchmark IoT-friendly JavaScript engines")
+    .version(PKG_VERSION)
+    .option("-v, --verbose", "print additional details for debugging purpose")
+    .configureOutput({
+        writeOut: str => logger.info(str),
+        writeErr: str => logger.error(str),
+    })
 
-    const args = process.argv.filter(arg => !arg.startsWith("-"))
-    const engineId = args[2]
-    const workloadId = args[3]
+program
+    .command("benchmark").alias("bm")
+    .description("Generate a benchmark for one engine and one workload")
+    .summary("generate a benchmark")
+    .argument("<engine>", "the engine to use")
+    .argument("<workload>", "the workload to run")
+    .action(actionWrapper(async (engineId, workloadId) => {
+        const engine = new Engine(engineId)
+        const workload = new Workload(workloadId)
 
-    const options = process.argv
-        .filter(arg => arg.startsWith("-"))
-        .map(option => option.replace(/^--?/, ""))
+        await engine.run(workload)
+    }))
 
-    if (options.includes("debug"))
-        logger.logLevel = LogLevel.DEBUG
+program.on("option:verbose", () => logger.logLevel = LogLevel.DEBUG)
 
-    const engine = new Engine(engineId)
-    const workload = new Workload(workloadId)
+program.parse()
 
-    await engine.run(workload)
-
-} catch (error: any) {
-    logger.error("An error occurred!")
-    logger.error(error.message)
-    logger.debug(error.stack)
-    process.exit(1)
+function actionWrapper(action: (...args: any[]) => void | Promise<void>) {
+    return async (...args: any[]) => {
+        try {
+            await action(...args)
+        } catch (error: any) {
+            logger.error("An error occurred!")
+            logger.error(error.message)
+            logger.debug(error.stack)
+            process.exit(1)
+        }
+    }
 }
