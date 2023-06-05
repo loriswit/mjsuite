@@ -28,6 +28,37 @@ program
         await engine.run(workload)
     }))
 
+
+const engineCmd = program
+    .command("engine")
+    .description("Manage JavaScript engines")
+    .summary("manage engines")
+
+engineCmd
+    .command("list")
+    .description("List all available JavaScript engines")
+    .summary("list available engines")
+    .action(actionWrapper(async () => logger.table(await Engine.listAll())))
+
+engineCmd
+    .command("setup")
+    .description("Download and build (or rebuild) one of the available JavaScript engines")
+    .summary("setup an engine")
+    .argument("<engine>", "the engine to setup")
+    .action(actionWrapper(async (engineId) => new Engine(engineId).setup()))
+
+
+const workloadCmd = program
+    .command("workload").alias("wl")
+    .description("Manage workloads")
+    .summary("manage workloads")
+
+workloadCmd
+    .command("list")
+    .description("List all available workloads")
+    .summary("list available workloads")
+    .action(actionWrapper(async () => logger.table(await Workload.listAll())))
+
 program.on("option:verbose", () => logger.logLevel = LogLevel.DEBUG)
 
 program.parse()

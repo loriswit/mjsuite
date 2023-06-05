@@ -1,4 +1,5 @@
 import {existsSync, readFileSync} from "fs"
+import {readdir, readFile} from "fs/promises"
 import {resolve} from "path"
 import {Engine} from "./engine.js"
 import {logger} from "./utils/logger.js"
@@ -33,5 +34,19 @@ export class Workload {
 
         const template = readFileSync(templateFile, "utf-8")
         return template.replace(/\$\{\s*workload\s*}/, this.sourceCode)
+    }
+
+    public static async listAll(): Promise<{ id: string, lines: number }[]> {
+        const workloadsRoot = resolve(PKG_ROOT, "workloads")
+        const workloadFiles = (await readdir(workloadsRoot)).filter(id => id.endsWith(".js"))
+        workloadFiles.sort((a, b) => a.localeCompare(b))
+
+        return await Promise.all(workloadFiles.map(async id => {
+            const buf = await readFile(resolve(workloadsRoot, id))
+            return {
+                id: id.replace(/\.js$/, ""),
+                lines: buf.toString().split("\n").length,
+            }
+        }))
     }
 }

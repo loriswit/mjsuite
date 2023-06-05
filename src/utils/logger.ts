@@ -12,6 +12,8 @@ export type LoggerStreams = Record<LogFunctions, Writable>
 
 export type LogMessage = string | number | boolean | object | undefined
 
+export type Primitive = string | boolean | number
+
 export enum LogColor {
     BLACK = 30,
     RED = 31,
@@ -63,6 +65,34 @@ export class Logger {
     public error(msg: LogMessage, options: LoggerOptions = {}) {
         if (this.logLevel <= LogLevel.ERROR)
             this.write(process.stderr, msg, options, LogColor.RED)
+    }
+
+    public table(table: Record<string, Primitive>[], options: LoggerOptions = {}) {
+        if (this.logLevel > LogLevel.INFO) return
+
+        if(table.length === 0) {
+            this.write(process.stdout, "<empty table>", options, LogColor.BRIGHT_BLACK)
+            return
+        }
+
+        const keys = Object.keys(table[0])
+        const lengths = keys.map(key => Math.max(key.length, ...table.map(row => row[key].toString().length)))
+        const totalLength = lengths.reduce((sum, length) => sum + length, 0)
+        const spacing = 4
+
+        const printRow = (row: Primitive[]) => {
+            const line = row.reduce((line, cell, index) =>
+                line + cell.toString().padEnd(lengths[index]) + " ".repeat(spacing), "")
+            this.write(process.stdout, line, options)
+        }
+
+        printRow(keys.map(key => key.toUpperCase()))
+
+        const separator = "-".repeat(totalLength + (lengths.length - 1) * spacing)
+        this.write(process.stdout, separator, options, LogColor.BRIGHT_BLACK)
+
+        for (const row of table)
+            printRow(keys.map(key => row[key]))
     }
 
     public clearLine(stream = process.stdout) {

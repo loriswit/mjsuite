@@ -15,8 +15,15 @@ The first time you run μJSuite, it will automatically download dependencies and
 Clone or download this repository, then run `bin/mjsuite` (or `bin\mjsuite` on Windows) from the root of the project. The syntax is as follows:
 
 ```
-bin/mjsuite <engine> <workload> [--debug] 
+bin/mjsuite [options] <command> [<args>]
 ```
+
+**Commands**
+
+- `benchmark <engine> <workload>`: run a workload with an engine and generate a benchmark.
+- `engine setup <engine>`: download and build a specific engine. This is done automatically when running the `benchmark` command using a new engine. This command can be used to **rebuild** an engine.
+- `engine list`: list all available engines.
+- `workload list`: list all available workloads.
 
 **Arguments**
 
@@ -25,17 +32,18 @@ bin/mjsuite <engine> <workload> [--debug]
 
 **Options**
 
-- `--debug`: sets the log level to "debug", making the application more verbose.
+- `-v`, `--verbose`: prints additional details for debugging purpose.
+- `-h`, `--help`: prints help for a specific command.
 
 **Example**
 
 ```
-❯ bin/mjsuite jerryscript array-sort
+❯ bin/mjsuite benchmark jerryscript array-sort
 Running workload 'array-sort' with engine JerryScript
 Workload finished in 853 ms
 ```
 
-**Note**: if you select a JavaScript engine for the first time, μJSuite will first download its source code and build a Docker image. This will take some time to complete, depending on the engine.
+**Note**: if you run a JavaScript engine for the first time, μJSuite will first download its source code and build a Docker image. This will take some time to complete, depending on the engine.
 
 ## Contributing
 
@@ -93,4 +101,4 @@ Note that if a workload prints multiple lines to the standard output, then only 
 
 ## Troubleshooting
 
-If μJSuite fails to work as expected, you can run it with the `--debug` option. This will increase the amount of information being printed to the console, which can be helpful to resolve problems.
+If μJSuite fails to work as expected, you can run it with the `--verbose` option. This will increase the amount of information being printed to the console, which can be helpful to resolve problems.

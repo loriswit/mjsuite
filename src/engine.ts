@@ -2,7 +2,7 @@ import {existsSync, readFileSync} from "fs"
 import {dirname, resolve} from "path"
 import {github, GitRef} from "./services/github.js"
 import {docker} from "./services/docker.js"
-import {mkdir, readdir, rename, rm, unlink, writeFile} from "fs/promises"
+import {mkdir, readdir, readFile, rename, rm, unlink, writeFile} from "fs/promises"
 import tar from "tar"
 import {logger} from "./utils/logger.js"
 import {Workload} from "./workload.js"
@@ -40,7 +40,7 @@ export class Engine {
     }
 
     public async setup() {
-        logger.info(`Setting up new engine: ${this.config.name} (${this.config.version})`)
+        logger.info(`Setting up engine: ${this.config.name} (${this.config.version})`)
 
         if (!this.ref) this.ref = await this.fetchRef()
         const enginePath = resolve(CACHE_PATH, this.ref.object.sha)
@@ -191,7 +191,7 @@ export class Engine {
 
             ;[{StatusCode: exitCode}] = await docker.run(this.imageName, [],
                 [logger.stream.info, logger.stream.error],
-                {Tty: false, HostConfig: {AutoRemove: true}})
+                {Tty: false, HostConfig: {AutoRemove: true, SecurityOpt: ["seccomp=unconfined"]}})
         }
 
         if (exitCode !== 0)
@@ -200,6 +200,28 @@ export class Engine {
 
     public get name() {
         return this.config.name
+    }
+
+    public static async listAll(): Promise<{ id: string, version: string, status: string }[]> {
+        const enginesRoot = resolve(PKG_ROOT, "engines")
+        const ids = (await readdir(enginesRoot))
+            .filter(id => existsSync(resolve(enginesRoot, id, "manifest.json")))
+
+        ids.sort((a, b) => a.localeCompare(b))
+
+        return await Promise.all(ids.map(async id => {
+            const manifest = resolve(enginesRoot, id, "manifest.json")
+            const config = JSON.parse((await readFile(manifest)).toString())
+
+            const imageName = `mjsuite/${id}:${config.version}`
+            const ready = await docker.imageExists(imageName)
+
+            return {
+                id,
+                version: config.version,
+                status: ready ? `✔️ ready` : "🛠️ requires setup",
+            }
+        }))
     }
 
     private async fetchRef() {
