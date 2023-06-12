@@ -12,38 +12,60 @@ The first time you run μJSuite, it will automatically download dependencies and
 
 ### Command line
 
-Clone or download this repository, then run `bin/mjsuite` (or `bin\mjsuite` on Windows) from the root of the project. The syntax is as follows:
+Clone or download this repository, then run `bin/mjsuite` (or `bin\mjsuite` on Windows) from the root of the project. To get a list of available commands and options, run `bin/mjsuite help`.
+
+When requested as an argument or option, a **workload** must match a script in the `workloads` directory (without the `.js` extension), and an **engine** must match one of the folders in the `engines` directory.
+
+All available commands are described below. Each of them provides a `--help` option that displays additional information about their usage.
+
+#### Benchmark
 
 ```
-bin/mjsuite [options] <command> [<args>]
+bin/mjsuite benchmark [options]
 ```
 
-**Commands**
+This command runs all workloads with all engines and generates a benchmark. The results are then written into a JSON file. You can also specify which workloads and engines to run using the options below.
 
-- `benchmark <engine> <workload>`: run a workload with an engine and generate a benchmark.
-- `engine setup <engine>`: download and build a specific engine. This is done automatically when running the `benchmark` command using a new engine. This command can be used to **rebuild** an engine.
-- `engine list`: list all available engines.
-- `workload list`: list all available workloads.
+When encountering a new engine, μJSuite will automatically download its source code and build a Docker image. This will take some time to complete, depending on the engine.
 
-**Arguments**
+The following options are available:
 
-- `engine`: one of the available JavaScript engines, which must match one of the folders in the `engines` directory.
-- `workload`: the workload to run with this engine, which must match one of the scripts in the `workloads` directory (without the `.js` extension).
+- `-w`, `--workload <workloads...>`: the workload(s) to run (default: all). 
+- `-e`, `--engine <engines...>`: the engine(s) to use (default: all).
+- `-o`, `--output <filename>`: the output file that will store the results.
 
-**Options**
+#### Engine
 
-- `-v`, `--verbose`: prints additional details for debugging purpose.
-- `-h`, `--help`: prints help for a specific command.
-
-**Example**
+To list all available engines, run:
 
 ```
-❯ bin/mjsuite benchmark jerryscript array-sort
+bin/mjsuite engine list
+```
+
+To download and build a specific engine, run:
+
+```
+bin/mjsuite engine setup <engine>
+```
+
+Note that this is done automatically when the `benchmark` command encounters a new engine. Running this command again will **rebuild** the engine and overwrite the existing image.
+
+#### Workload
+
+To list all available workloads, run:
+
+```
+bin/mjsuite workload list
+```
+
+#### Example
+
+```
+❯ bin/mjsuite benchmark --workload array-sort --engine jerryscript
 Running workload 'array-sort' with engine JerryScript
 Workload finished in 853 ms
+Saved results to benchmark_2023-06-12_19-29-22.json
 ```
-
-**Note**: if you run a JavaScript engine for the first time, μJSuite will first download its source code and build a Docker image. This will take some time to complete, depending on the engine.
 
 ## Contributing
 
@@ -71,7 +93,7 @@ Once the engine is compiled, we want the image to only contain the executable (a
 The entry point of the container must be set to the following:
 
 ```Dockerfile
-ENTRYPOINT ["perf", "stat", "-e", "task-clock", "-x,", "{engine}"]
+ENTRYPOINT ["perf", "stat", "-x,", "{engine}"]
 ```
 
 where `{engine}` is the engine executable file.

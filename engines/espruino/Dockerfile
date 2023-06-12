@@ -22,5 +22,5 @@ WORKDIR /espruino
 RUN apk --no-cache add libstdc++ perf
 COPY --from=build /espruino/bin/espruino /bin/
 
-ENTRYPOINT ["perf", "stat", "-e", "task-clock", "-x,", "espruino"]
+ENTRYPOINT ["perf", "stat", "-x,", "espruino"]
 CMD ["-e", "print('Hello Espruino!')"]

@@ -1,14 +1,14 @@
 import {existsSync, readFileSync} from "fs"
-import {dirname, resolve} from "path"
-import {github, GitRef} from "./services/github.js"
-import {docker} from "./services/docker.js"
-import {mkdir, readdir, readFile, rename, rm, unlink, writeFile} from "fs/promises"
+import {resolve} from "path"
+import {github, GitRef} from "../services/github.js"
+import {docker} from "../services/docker.js"
+import {mkdir, readdir, readFile, rename, rm} from "fs/promises"
 import tar from "tar"
-import {logger} from "./utils/logger.js"
-import {Workload} from "./workload.js"
-import {Writable} from "stream"
+import {logger} from "../utils/logger.js"
 
 const CACHE_PATH = resolve(PKG_ROOT, "engines", "cache")
+
+export type EngineId = string
 
 export interface EngineConfig {
     name: string
@@ -18,13 +18,13 @@ export interface EngineConfig {
 }
 
 export class Engine {
-    public readonly id: string
+    public readonly id: EngineId
+    public readonly imageName: string
 
-    private readonly imageName: string
     private readonly config: EngineConfig
     private ref: GitRef | undefined
 
-    public constructor(id: string) {
+    public constructor(id: EngineId) {
         try {
             const data = readFileSync(resolve(PKG_ROOT, "engines", id, "manifest.json"), "utf-8")
             this.config = JSON.parse(data)
@@ -37,6 +37,35 @@ export class Engine {
 
         this.id = id
         this.imageName = `mjsuite/${id}:${this.config.version}`
+    }
+
+    public get name() {
+        return this.config.name
+    }
+
+    public static async getAllIds(): Promise<EngineId[]> {
+        const enginesRoot = resolve(PKG_ROOT, "engines")
+        return (await readdir(enginesRoot))
+            .filter(id => existsSync(resolve(enginesRoot, id, "manifest.json")))
+            .sort((a, b) => a.localeCompare(b))
+    }
+
+    public static async listAll(): Promise<{ id: string, version: string, status: string }[]> {
+        const ids = await Engine.getAllIds()
+
+        return await Promise.all(ids.map(async id => {
+            const manifest = resolve(PKG_ROOT, "engines", id, "manifest.json")
+            const config = JSON.parse((await readFile(manifest)).toString())
+
+            const imageName = `mjsuite/${id}:${config.version}`
+            const ready = await docker.imageExists(imageName)
+
+            return {
+                id,
+                version: config.version,
+                status: ready ? `✔️ ready` : "🛠️ requires setup",
+            }
+        }))
     }
 
     public async setup() {
@@ -129,99 +158,17 @@ export class Engine {
     }
 
     /**
-     * Starts the engine and executes a workload, if provided.
-     * @param workload The workload to run
+     * Starts the engine.
      */
-    public async run(workload?: Workload) {
-        if (!await docker.imageExists(this.imageName))
-            await this.setup()
+    public async run() {
+        logger.info(`Running engine ${this.name}`)
 
-        let exitCode: number
-
-        if (workload) {
-            logger.info(`Running workload '${workload.id}' with engine ${this.name}`)
-
-            const filename = `${workload.id}__${this.id}__${new Date().getTime()}.tmp.js`
-            const workloadFile = resolve(PKG_ROOT, "workloads", "tmp", filename)
-            await mkdir(dirname(workloadFile), {recursive: true})
-            await writeFile(workloadFile, workload.compile(this))
-
-            let output = ""
-            const containerStream = new Writable({
-                write: (chunk: Buffer, _, next) => {
-                    logger.debug(chunk, {raw: true})
-                    output += chunk.toString()
-                    next()
-                },
-            })
-
-            // if μJSuite is running inside Docker, use host path as mount source
-            const mountSourcePath = process.env.MOUNT_SRC
-                ? workloadFile.replace(PKG_ROOT, process.env.MOUNT_SRC)
-                : workloadFile
-
-            ;[{StatusCode: exitCode}] = (await docker.run(
-                this.imageName,
-                ["/mjsuite/workload.js"],
-                containerStream,
-                {
-                    HostConfig: {
-                        Mounts: [{
-                            Type: "bind",
-                            Source: mountSourcePath,
-                            Target: "/mjsuite/workload.js",
-                        }],
-                        AutoRemove: true,
-                        SecurityOpt: ["seccomp=unconfined"],
-                    },
-                }))
-
-            await unlink(workloadFile)
-
-            const perfStat = output.split(/\n(?=\S)/).pop() // get last line
-            const taskClock = perfStat?.split(",")[3]
-            if (taskClock) {
-                const result = Number.parseInt(taskClock) / 1000000
-                logger.info(`> Workload finished in ${result} ms`)
-            } else
-                throw new Error("Failed to measure task duration")
-
-        } else {
-            logger.info(`Running engine ${this.name}`)
-
-            ;[{StatusCode: exitCode}] = await docker.run(this.imageName, [],
-                [logger.stream.info, logger.stream.error],
-                {Tty: false, HostConfig: {AutoRemove: true, SecurityOpt: ["seccomp=unconfined"]}})
-        }
+        const [{StatusCode: exitCode}] = await docker.run(this.imageName, [],
+            [logger.stream.info, logger.stream.error],
+            {Tty: false, HostConfig: {AutoRemove: true, SecurityOpt: ["seccomp=unconfined"]}})
 
         if (exitCode !== 0)
             throw new Error("Failed to run engine")
-    }
-
-    public get name() {
-        return this.config.name
-    }
-
-    public static async listAll(): Promise<{ id: string, version: string, status: string }[]> {
-        const enginesRoot = resolve(PKG_ROOT, "engines")
-        const ids = (await readdir(enginesRoot))
-            .filter(id => existsSync(resolve(enginesRoot, id, "manifest.json")))
-
-        ids.sort((a, b) => a.localeCompare(b))
-
-        return await Promise.all(ids.map(async id => {
-            const manifest = resolve(enginesRoot, id, "manifest.json")
-            const config = JSON.parse((await readFile(manifest)).toString())
-
-            const imageName = `mjsuite/${id}:${config.version}`
-            const ready = await docker.imageExists(imageName)
-
-            return {
-                id,
-                version: config.version,
-                status: ready ? `✔️ ready` : "🛠️ requires setup",
-            }
-        }))
     }
 
     private async fetchRef() {

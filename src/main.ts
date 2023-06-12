@@ -1,9 +1,36 @@
-import {program} from "commander"
+import {OptionValues, program} from "commander"
 
 import "./utils/globals.js"
 import {logger, LogLevel} from "./utils/logger.js"
-import {Engine} from "./engine.js"
-import {Workload} from "./workload.js"
+import {Engine, EngineId} from "./commands/engine.js"
+import {Workload, WorkloadId} from "./commands/workload.js"
+import {Benchmark} from "./commands/benchmark.js"
+import {writeFile} from "fs/promises"
+import {timestamp} from "./utils/helpers.js"
+
+program
+    .command("benchmark").alias("bm")
+    .description("Generate a benchmark for all workloads and all engines and store results in a JSON file.\n" +
+        "You can also specify which workloads and engines to run.")
+    .summary("generate a benchmark")
+    .option("-w, --workload <workloads...>", "the workload(s) to run (default: all)")
+    .option("-e, --engine <engines...>", "the engine(s) to use (default: all)")
+    .option("-o, --output <filename>", "the output file that will store the results")
+    .action(actionWrapper(async (options: OptionValues) => {
+        const engineIds = options.engine ?? await Engine.getAllIds()
+        const engines = engineIds.map((id: EngineId) => new Engine(id))
+
+        const workloadIds = options.workload ?? await Workload.getAllIds()
+        const workloads = workloadIds.map((id: WorkloadId) => new Workload(id))
+
+        const benchmark = new Benchmark(workloads, engines)
+        const results = await benchmark.run()
+
+        const filename = `benchmark_${timestamp()}.json`
+        const data = JSON.stringify(results, null, 4)
+        await writeFile(filename, data)
+        logger.info("Saved results to " + filename)
+    }))
 
 program
     .name("mjsuite")
@@ -14,19 +41,6 @@ program
         writeOut: str => logger.info(str),
         writeErr: str => logger.error(str),
     })
-
-program
-    .command("benchmark").alias("bm")
-    .description("Generate a benchmark for one engine and one workload")
-    .summary("generate a benchmark")
-    .argument("<engine>", "the engine to use")
-    .argument("<workload>", "the workload to run")
-    .action(actionWrapper(async (engineId, workloadId) => {
-        const engine = new Engine(engineId)
-        const workload = new Workload(workloadId)
-
-        await engine.run(workload)
-    }))
 
 
 const engineCmd = program

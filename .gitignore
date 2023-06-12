@@ -10,6 +10,9 @@ node_modules/
 # build files
 build/
 
+# benchmark results
+benchmark_*.json
+
 # IDE config
 .idea/
 .vscode/

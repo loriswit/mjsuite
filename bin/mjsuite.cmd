@@ -10,6 +10,7 @@ if not exist %ROOT_DIR%\build\ (
 )
 
 docker run --rm -q --name mjsuite ^
+    -w /mjsuite ^
     -v %ROOT_DIR%:/mjsuite ^
     -v /var/run/docker.sock:/var/run/docker.sock ^
     -e MOUNT_SRC=%ROOT_DIR% ^

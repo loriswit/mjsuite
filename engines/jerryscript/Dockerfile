@@ -16,5 +16,5 @@ RUN apk --no-cache add perf
 COPY --from=build /jerry/build/bin/jerry /bin/
 COPY --from=build /jerry/tests/hello.js ./
 
-ENTRYPOINT ["perf", "stat", "-e", "task-clock", "-x,", "jerry"]
+ENTRYPOINT ["perf", "stat", "-x,", "jerry"]
 CMD ["hello.js"]
