@@ -5,7 +5,9 @@ export class DockerExt extends Docker {
         try {
             await this.getImage(imageName).inspect()
             return true
-        } catch {
+        } catch (error: any) {
+            // rethrow if Docker is not available
+            if (error.code === "ENOENT") throw error
             return false
         }
     }

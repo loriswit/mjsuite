@@ -68,8 +68,13 @@ function actionWrapper(action: (...args: any[]) => void | Promise<void>) {
         try {
             await action(...args)
         } catch (error: any) {
-            logger.error("An error occurred!")
-            logger.error(error.message)
+            if (error.code === "ENOENT" && error.syscall === "connect")
+                logger.error("Connection to Docker Engine failed")
+            else {
+                logger.error("An error occurred!")
+                logger.error(error.message)
+            }
+            logger.debug(error)
             logger.debug(error.stack)
             process.exit(1)
         }
