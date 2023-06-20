@@ -88,7 +88,7 @@ Create a `manifest.json` containing an object with the following fields:
 
 The Dockerfile must describe how to build the source code of the engine. When executed, the Dockerfile receives `srcPath` as an argument, which contains the full path to the source code. This argument can be used to copy the source code into the image (e.g., `COPY $srcPath ./`)
 
-Once the engine is compiled, we want the image to only contain the executable (and its dependencies, if any) **and** the [perf](https://perf.wiki.kernel.org/) tool, without all the build tools and cache. This can be achieved with [multi-stage builds](https://docs.docker.com/build/building/multi-stage/).
+Once the engine is compiled, we want the image to only contain the executable (and its dependencies, if any) without all the build tools and cache. This can be achieved with [multi-stage builds](https://docs.docker.com/build/building/multi-stage/). We also need the final image to include **both** the [perf](https://perf.wiki.kernel.org/) and [time](https://en.wikipedia.org/wiki/Time_(Unix)) tools
 
 The entry point of the container must be set to the engine executable file.
 

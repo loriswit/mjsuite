@@ -1,25 +1,26 @@
-FROM python:3.11-alpine3.18 as build
+FROM python:3.11-slim-bullseye as build
 ARG srcPath
 WORKDIR /espruino
 
-RUN apk --no-cache add py3-pip patch curl make git g++ musl-dev
+RUN apt-get update
+RUN apt-get install -qq -y python3-pip git
 RUN pip install pyserial
 RUN pip install nrfutil
 
 COPY $srcPath/scripts /espruino/scripts
 COPY $srcPath/targetlibs /espruino/targetlibs
 COPY $srcPath/boards /espruino/boards
-RUN source scripts/provision.sh ALL
+RUN bash -c "source scripts/provision.sh ALL"
 
 COPY $srcPath .
 ENV RELEASE 1
 RUN make
 
-
-FROM alpine:3.18
+FROM ubuntu:jammy
 WORKDIR /espruino
 
-RUN apk --no-cache add libstdc++ perf
+RUN apt-get update && apt-get install -qq -y linux-tools-generic time
+RUN ln -sf /usr/lib/linux-tools/*-generic/perf /usr/bin/perf
 COPY --from=build /espruino/bin/espruino /bin/
 
 ENTRYPOINT ["espruino"]
