@@ -2,7 +2,7 @@ import {existsSync, readFileSync} from "fs"
 import {resolve} from "path"
 import {github, GitRef} from "../services/github.js"
 import {docker} from "../services/docker.js"
-import {mkdir, readdir, readFile, rename, rm} from "fs/promises"
+import {mkdir, readdir, rename, rm} from "fs/promises"
 import tar from "tar"
 import {logger} from "../utils/logger.js"
 
@@ -20,16 +20,24 @@ export interface EngineConfig {
 export class Engine {
     public readonly id: EngineId
     public readonly imageName: string
+    public readonly entrypoint: string
 
     private readonly config: EngineConfig
     private ref: GitRef | undefined
 
     public constructor(id: EngineId) {
         try {
-            const data = readFileSync(resolve(PKG_ROOT, "engines", id, "manifest.json"), "utf-8")
-            this.config = JSON.parse(data)
+            let buffer = readFileSync(resolve(PKG_ROOT, "engines", id, "manifest.json"), "utf-8")
+            this.config = JSON.parse(buffer)
             if (!this.config.name || !this.config.repository || !this.config.version)
                 throw new Error("bad manifest")
+
+            buffer = readFileSync(resolve(PKG_ROOT, "engines", id, "Dockerfile"), "utf-8")
+            const match = buffer.match(/^ENTRYPOINT \["(\w+)"]/m)
+            if (!match)
+                throw new Error("bad ENTRYPOINT in Dockerfile")
+
+            this.entrypoint = match[1]
 
         } catch (e: any) {
             throw new Error(`Invalid engine '${id}' (${e.message})`)
@@ -54,15 +62,20 @@ export class Engine {
         const ids = await Engine.getAllIds()
 
         return await Promise.all(ids.map(async id => {
-            const manifest = resolve(PKG_ROOT, "engines", id, "manifest.json")
-            const config = JSON.parse((await readFile(manifest)).toString())
+            const engine = new Engine(id)
+            const ready = await docker.imageExists(engine.imageName)
 
-            const imageName = `mjsuite/${id}:${config.version}`
-            const ready = await docker.imageExists(imageName)
+            logger.debug({
+                id,
+                config: engine.config,
+                imageName: engine.imageName,
+                entrypoint: engine.entrypoint,
+                ready,
+            })
 
             return {
                 id,
-                version: config.version,
+                version: engine.config.version,
                 status: ready ? `✔️ ready` : "🛠️ requires setup",
             }
         }))

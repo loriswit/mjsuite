@@ -90,13 +90,7 @@ The Dockerfile must describe how to build the source code of the engine. When ex
 
 Once the engine is compiled, we want the image to only contain the executable (and its dependencies, if any) **and** the [perf](https://perf.wiki.kernel.org/) tool, without all the build tools and cache. This can be achieved with [multi-stage builds](https://docs.docker.com/build/building/multi-stage/).
 
-The entry point of the container must be set to the following:
-
-```Dockerfile
-ENTRYPOINT ["perf", "stat", "-x,", "{engine}"]
-```
-
-where `{engine}` is the engine executable file.
+The entry point of the container must be set to the engine executable file.
 
 #### Workload template
 

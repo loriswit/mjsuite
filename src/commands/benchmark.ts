@@ -21,70 +21,6 @@ export class Benchmark {
     }
 
     /**
-     * Runs a single workload with a single engine.
-     * Automatically setups the engine if not ready yet.
-     */
-    public static async run(workload: Workload, engine: Engine): Promise<PerfStat> {
-        if (!await docker.imageExists(engine.imageName))
-            await engine.setup()
-
-        logger.info(`Running workload '${workload.id}' with engine ${engine.name}`)
-
-        const filename = `${workload.id}__${engine.id}__${new Date().getTime()}.tmp.js`
-        const workloadFile = resolve(PKG_ROOT, "workloads", "tmp", filename)
-        await mkdir(dirname(workloadFile), {recursive: true})
-        await writeFile(workloadFile, workload.compile(engine))
-
-        let output = ""
-        const containerStream = new Writable({
-            write: (chunk: Buffer, _, next) => {
-                logger.debug(chunk, {raw: true})
-                output += chunk.toString()
-                next()
-            },
-        })
-
-        // if μJSuite is running inside Docker, use host path as mount source
-        const mountSourcePath = process.env.MOUNT_SRC
-            ? workloadFile.replace(PKG_ROOT, process.env.MOUNT_SRC)
-            : workloadFile
-
-        const [{StatusCode: exitCode}] = (await docker.run(
-            engine.imageName,
-            ["/mjsuite/workload.js"],
-            containerStream,
-            {
-                HostConfig: {
-                    Mounts: [{
-                        Type: "bind",
-                        Source: mountSourcePath,
-                        Target: "/mjsuite/workload.js",
-                    }],
-                    AutoRemove: true,
-                    SecurityOpt: ["seccomp=unconfined"],
-                },
-            }))
-
-        if (exitCode !== 0)
-            throw new Error("Failed to run engine")
-
-        await unlink(workloadFile)
-
-        const perfLines = output.split(/\n(?=\S)/).slice(-8) // get last 8 lines
-        const stats = Object.fromEntries(perfLines.map(line => {
-            const cells = line.split(",")
-            const value = parseFloat(cells[0])
-            const eventName = toPascalCase(cells[2].replace(/:.*$/, ""))
-            return [eventName, value]
-        }))
-
-        stats.runTime = parseInt(perfLines[0].split(",")[3])
-
-        logger.info(`> Workload finished in ${stats.taskClock} ms`)
-        return stats
-    }
-
-    /**
      * Runs all provided workloads with all provided engines.
      */
     public async run(): Promise<Stats> {
@@ -96,9 +32,85 @@ export class Benchmark {
                 if (this.workloads.length > 1 || this.engines.length > 1)
                     logger.debug("\n====================\n")
                 const engineKey = toPascalCase(engine.id)
-                stats[workloadKey][engineKey] = await Benchmark.run(workload, engine)
+                stats[workloadKey][engineKey] = await gatherStats(workload, engine)
             }
         }
         return stats
     }
+}
+
+async function gatherStats(workload: Workload, engine: Engine): Promise<PerfStat> {
+    if (!await docker.imageExists(engine.imageName))
+        await engine.setup()
+
+    logger.info(`Running workload '${workload.id}' with engine ${engine.name}`)
+
+    const filename = `${workload.id}__${engine.id}__${new Date().getTime()}.tmp.js`
+    const workloadFile = resolve(PKG_ROOT, "workloads", "tmp", filename)
+    await mkdir(dirname(workloadFile), {recursive: true})
+    await writeFile(workloadFile, workload.compile(engine))
+
+    // if μJSuite is running inside Docker, use host path as mount source
+    const mountSourcePath = process.env.MOUNT_SRC
+        ? workloadFile.replace(PKG_ROOT, process.env.MOUNT_SRC)
+        : workloadFile
+
+    try {
+        logger.info("> Gathering performance stats")
+        let output = await runCommand(["perf", "stat", "-x,"], engine, mountSourcePath)
+
+        const perfLines = output.split(/\n(?=\S)/).slice(-8) // get last 8 lines
+        const stats = Object.fromEntries(perfLines.map(line => {
+            const cells = line.split(",")
+            const value = parseFloat(cells[0])
+            const eventName = toPascalCase(cells[2].replace(/:.*$/, ""))
+            return [eventName, value]
+        }))
+        stats.runTime = parseInt(perfLines[0].split(",")[3])
+
+        logger.info("> Gathering memory usage")
+        output = await runCommand(["time", "-v"], engine, mountSourcePath)
+
+        const maxMemory = output.match(/^\s*Maximum resident set size \(kbytes\): (\d+)/m)?.[1]
+        if (!maxMemory) throw new Error("Failed to measure max memory usage")
+        stats.maxMemory = parseInt(maxMemory) * 1000
+
+        return stats
+
+    } finally {
+        await unlink(workloadFile)
+    }
+}
+
+async function runCommand(command: string[], engine: Engine, workloadFile: string): Promise<string> {
+    let output = ""
+    const containerStream = new Writable({
+        write: (chunk: Buffer, _, next) => {
+            logger.debug(chunk, {raw: true})
+            output += chunk.toString()
+            next()
+        },
+    })
+
+    const [{StatusCode: exitCode}] = (await docker.run(
+        engine.imageName,
+        ["/mjsuite/workload.js"],
+        containerStream,
+        {
+            Entrypoint: [...command, engine.entrypoint],
+            HostConfig: {
+                Mounts: [{
+                    Type: "bind",
+                    Source: workloadFile,
+                    Target: "/mjsuite/workload.js",
+                }],
+                AutoRemove: true,
+                SecurityOpt: ["seccomp=unconfined"],
+            },
+        }))
+
+    if (exitCode !== 0)
+        throw new Error(`Failed to run engine (exit code: ${exitCode})`)
+
+    return output
 }
