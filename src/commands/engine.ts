@@ -24,6 +24,7 @@ export class Engine {
 
     private readonly config: EngineConfig
     private ref: GitRef | undefined
+    private buildFromSource: boolean
 
     public constructor(id: EngineId) {
         try {
@@ -32,12 +33,14 @@ export class Engine {
             if (!this.config.name || !this.config.repository || !this.config.version)
                 throw new Error("bad manifest")
 
+            // extract entrypoint from Dockerfile
             buffer = readFileSync(resolve(PKG_ROOT, "engines", id, "Dockerfile"), "utf-8")
-            const match = buffer.match(/^ENTRYPOINT \["(\w+)"]/m)
-            if (!match)
-                throw new Error("bad ENTRYPOINT in Dockerfile")
-
+            const match = buffer.match(/^\s*ENTRYPOINT \["(\w+)"]/m)
+            if (!match) throw new Error("bad ENTRYPOINT in Dockerfile")
             this.entrypoint = match[1]
+
+            // determine if the engine is being built from its source code
+            this.buildFromSource = /^\s*ARG\s+srcPath\s*$/m.test(buffer)
 
         } catch (e: any) {
             throw new Error(`Invalid engine '${id}' (${e.message})`)
@@ -84,14 +87,16 @@ export class Engine {
     public async setup() {
         logger.info(`Setting up engine: ${this.config.name} (${this.config.version})`)
 
-        if (!this.ref) this.ref = await this.fetchRef()
-        const enginePath = resolve(CACHE_PATH, this.ref.object.sha)
+        if (this.buildFromSource) {
+            if (!this.ref) this.ref = await this.fetchRef()
+            const enginePath = resolve(CACHE_PATH, this.ref.object.sha)
 
-        // download source code if not available
-        if (existsSync(enginePath))
-            logger.info("> Source code found in cache")
-        else
-            await this.download()
+            // download source code if not available
+            if (existsSync(enginePath))
+                logger.info("> Source code found in cache")
+            else
+                await this.download()
+        }
 
         // build Docker image
         await this.build()
@@ -133,7 +138,7 @@ export class Engine {
         const dockerfile = `${this.id}/Dockerfile`
         const buildStream = await docker.buildImage({
             context: resolve(PKG_ROOT, "engines"),
-            src: [dockerfile, srcPath],
+            src: this.buildFromSource ? [dockerfile, srcPath] : [dockerfile],
         }, {
             t: this.imageName,
             buildargs: {srcPath},
