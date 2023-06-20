@@ -62,7 +62,7 @@ async function gatherStats(workload: Workload, engine: Engine): Promise<PerfStat
         const perfLines = output.split(/\n(?=\S)/).slice(-8) // get last 8 lines
         const stats = Object.fromEntries(perfLines.map(line => {
             const cells = line.split(",")
-            const value = parseFloat(cells[0])
+            const value = parseFloat(cells[0].replace(/^>?/, "")) // remove trailing prompt
             const eventName = toPascalCase(cells[2].replace(/:.*$/, ""))
             return [eventName, value]
         }))
