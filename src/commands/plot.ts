@@ -33,6 +33,12 @@ export class Plot {
     }
 
     public show() {
+        if (IN_CONTAINER) {
+            throw new Error(
+                "Drawing plots inside a Docker container is not yet supported.\n" +
+                "Please install Node.js and run `node build/main plot` instead.")
+        }
+
         for (const entry of this.plots)
             plot(entry.plot, {title: {text: entry.title}})
     }
