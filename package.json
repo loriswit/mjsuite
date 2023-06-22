@@ -11,6 +11,7 @@
     "commander": "^10.0.1",
     "dockerode": "^3.3.5",
     "lzma-native": "^8.0.6",
+    "nodeplotlib": "^1.1.2",
     "tar": "^6.1.14"
   },
   "devDependencies": {
