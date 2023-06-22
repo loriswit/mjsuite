@@ -80,6 +80,7 @@ Create a `manifest.json` containing an object with the following fields:
 - `name`: the name of the engine
 - `repository`: the GitHub repository of the engine, in the form `user/repo`
 - `version`: a git tag referencing the target version
+- `source` (optional): a URL to the source code. If set, μJSuite will download from this URL instead of GitHub. This can be helpful with embeddable engines that provide pre-processed packaged source code.
 - `clone` (optional): set to `true` to clone the repository instead of simply downloading it. This will take more time, but some engines require the source code to be in a git repository in order to be built.
 
 **Note**: when running μJSuite, the `engine` must match the name of the **folder**, not the name specified in the manifest.

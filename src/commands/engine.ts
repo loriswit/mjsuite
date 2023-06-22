@@ -3,8 +3,8 @@ import {resolve} from "path"
 import {github, GitRef} from "../services/github.js"
 import {docker} from "../services/docker.js"
 import {mkdir, readdir, rename, rm} from "fs/promises"
-import tar from "tar"
 import {logger} from "../utils/logger.js"
+import {download, extractArchive} from "../utils/helpers.js"
 
 const CACHE_PATH = resolve(PKG_ROOT, "engines", "cache")
 
@@ -15,6 +15,7 @@ export interface EngineConfig {
     repository: string
     version: string
     clone?: boolean
+    source?: string
 }
 
 export class Engine {
@@ -23,8 +24,8 @@ export class Engine {
     public readonly entrypoint: string
 
     private readonly config: EngineConfig
+    private readonly buildFromSource: boolean
     private ref: GitRef | undefined
-    private buildFromSource: boolean
 
     public constructor(id: EngineId) {
         try {
@@ -113,21 +114,31 @@ export class Engine {
         const destinationPath = resolve(CACHE_PATH, this.ref.object.sha)
         await mkdir(downloadPath, {recursive: true})
 
-        if (this.config.clone) {
-            logger.info("> Cloning source code")
-            await github.clone(this.config.repository, {branch: this.config.version, depth: 1}, downloadPath)
+        try {
+            if (this.config.clone) {
+                logger.info("> Cloning source code")
+                await github.clone(this.config.repository, {branch: this.config.version, depth: 1}, downloadPath)
 
-        } else {
-            logger.info("> Downloading source code")
-            const file = await github.downloadTarball(this.config.repository, this.ref, tmpPath)
-            logger.info("> Extracting source code")
-            await tar.extract({file, cwd: downloadPath})
+            } else {
+                logger.info("> Downloading source code")
+                let file: string
+                if (this.config.source) {
+                    file = resolve(tmpPath, this.config.source.split("/").pop() as string)
+                    await download(this.config.source, file)
+                } else
+                    file = await github.downloadTarball(this.config.repository, this.ref, tmpPath)
+
+                logger.info("> Extracting source code")
+                await extractArchive(file, downloadPath)
+            }
+
+            // move source code out of tmp folder
+            const srcDir = (await readdir(downloadPath))[0]
+            await rename(resolve(downloadPath, srcDir), destinationPath)
+
+        } finally {
+            await rm(tmpPath, {recursive: true})
         }
-
-        // move source code out of tmp folder
-        const srcDir = (await readdir(downloadPath))[0]
-        await rename(resolve(downloadPath, srcDir), destinationPath)
-        await rm(tmpPath, {recursive: true})
     }
 
     public async build() {

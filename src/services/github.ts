@@ -1,7 +1,7 @@
 import {docker} from "./docker.js"
 import {resolve} from "path"
-import {writeFile} from "fs/promises"
 import {logger} from "../utils/logger.js"
+import {download} from "../utils/helpers.js"
 
 const GITHUB_API_ROOT = "https://api.github.com"
 const GIT_IMAGE = "alpine/git"
@@ -34,11 +34,9 @@ export class GitHub {
     }
 
     public async downloadTarball(repository: string, ref: GitRef, destinationPath = process.cwd()): Promise<string> {
-        const response = await fetch(`https://api.github.com/repos/${repository}/tarball/${ref.object.sha}`)
-        const data = await response.arrayBuffer()
-
+        const url = `https://api.github.com/repos/${repository}/tarball/${ref.object.sha}`
         const filename = resolve(destinationPath, `${ref.object.sha}.tar.gz`)
-        await writeFile(filename, Buffer.from(data))
+        await download(url, filename)
         return filename
     }
 

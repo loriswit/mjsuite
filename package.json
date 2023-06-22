@@ -10,10 +10,12 @@
   "dependencies": {
     "commander": "^10.0.1",
     "dockerode": "^3.3.5",
+    "lzma-native": "^8.0.6",
     "tar": "^6.1.14"
   },
   "devDependencies": {
     "@types/dockerode": "^3.3.17",
+    "@types/lzma-native": "^4.0.1",
     "@types/tar": "^6.1.4",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"

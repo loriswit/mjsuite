@@ -1,4 +1,4 @@
-let data = [
+var data = [
     "warning", "understanding", "height", "consequence", "chocolate", "Arrival",
     "security", "Transportation", "Affair", "disease", "cheek", "thanks",
     "confusion", "poem", "1234", "assignment", "girlfriend", "Breath", "grocery",
@@ -9,7 +9,7 @@ let data = [
     "departure", "sister", "introduction", "entry", "sample",
 ]
 
-for (let i = 0; i < 100000; ++i)
+for (var i = 0; i < 100000; ++i)
     data.sort()
 
 console.log(data[0] === "1234")

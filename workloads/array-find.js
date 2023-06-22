@@ -1,10 +1,10 @@
-let data = []
-for (let i = 0; i <= 10000; i++)
+var data = []
+for (var i = 0; i <= 10000; i++)
     data.push(i)
 
-const res = []
+var res = []
 
-for (let i = 0; i < 1000; ++i)
-    res.push(data.find(x => x === 8000))
+for (var i = 0; i < 1000; ++i)
+    res.push(data[data.indexOf(8000)])
 
 console.log(res.length === 1000)
