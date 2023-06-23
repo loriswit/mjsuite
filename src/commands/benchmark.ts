@@ -1,7 +1,7 @@
 import {Engine, EngineId} from "./engine.js"
 import {Workload, WorkloadId} from "./workload.js"
 import {docker} from "../services/docker.js"
-import {logger} from "../utils/logger.js"
+import {logger, LogLevel} from "../utils/logger.js"
 import {dirname, resolve} from "path"
 import {mkdir, unlink, writeFile} from "fs/promises"
 import {Writable} from "stream"
@@ -77,6 +77,12 @@ async function gatherStats(workload: Workload, engine: Engine): Promise<PerfStat
 
         return stats
 
+    } catch (e: any) {
+        logger.warn(e.message)
+        if (logger.logLevel !== LogLevel.DEBUG)
+            logger.warn("Rerun with the `--verbose` option for more details")
+        return {}
+
     } finally {
         await unlink(workloadFile)
     }
@@ -110,7 +116,7 @@ async function runCommand(command: string[], engine: Engine, workloadFile: strin
         }))
 
     if (exitCode !== 0)
-        throw new Error(`Failed to run engine (exit code: ${exitCode})`)
+        throw new Error(`This workload could not be run with ${engine.name} (exit code: ${exitCode})`)
 
     return output
 }

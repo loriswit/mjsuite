@@ -1,4 +1,6 @@
-var data = [
+var N = 2e5; // iterations
+
+var array = [
     "warning", "understanding", "height", "consequence", "chocolate", "Arrival",
     "security", "Transportation", "Affair", "disease", "cheek", "thanks",
     "confusion", "poem", "1234", "assignment", "girlfriend", "Breath", "grocery",
@@ -9,9 +11,10 @@ var data = [
     "departure", "sister", "introduction", "entry", "sample",
 ]
 
-for (var i = 0; i < 100000; ++i)
-    data.sort()
+var res
+var startTime = Date.now()
 
-console.log(data[0] === "1234")
-console.log(data[1] === "Affair")
-console.log(data[data.length - 1] === "warning")
+for (var i = 0; i < N; ++i)
+    res = array.slice().sort()[0]
+
+console.log(Date.now() - startTime)
