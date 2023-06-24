@@ -14,6 +14,7 @@ export interface EngineConfig {
     name: string
     repository: string
     version: string
+    sha?: string
     clone?: boolean
     source?: string
 }
@@ -201,7 +202,13 @@ export class Engine {
     }
 
     private async fetchRef() {
+        if (this.config.sha)
+            return {object: {sha: this.config.sha}}
+
         logger.info("> Fetching repository")
-        return await github.getRef(this.config.repository, {tags: this.config.version})
+        const ref = await github.getRef(this.config.repository, {tags: this.config.version})
+        if (!ref.object?.sha)
+            throw new Error(`Invalid git tag: ${this.config.version} (use the 'sha' property to override tag)`)
+        return ref
     }
 }
