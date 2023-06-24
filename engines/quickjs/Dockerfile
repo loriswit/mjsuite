@@ -9,9 +9,10 @@ RUN make
 
 
 FROM alpine:3.18
+ARG timeRepo=http://dl-cdn.alpinelinux.org/alpine/edge/testing
 WORKDIR /quickjs
 
-RUN apk --no-cache add perf
+RUN apk --no-cache -X $timeRepo add perf time
 
 COPY --from=build /quickjs/qjs /bin/
 

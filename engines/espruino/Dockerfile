@@ -13,8 +13,7 @@ COPY $srcPath/boards /espruino/boards
 RUN bash -c "source scripts/provision.sh ALL"
 
 COPY $srcPath .
-ENV RELEASE 1
-RUN make
+RUN RELEASE=1 make
 
 FROM ubuntu:jammy
 WORKDIR /espruino

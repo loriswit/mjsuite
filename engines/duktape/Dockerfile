@@ -9,9 +9,10 @@ RUN make -f Makefile.cmdline
 
 
 FROM alpine:3.18
+ARG timeRepo=http://dl-cdn.alpinelinux.org/alpine/edge/testing
 WORKDIR /duktape
 
-RUN apk --no-cache add perf
+RUN apk --no-cache -X $timeRepo add perf time
 
 COPY --from=build /duktape/duk /bin/
 

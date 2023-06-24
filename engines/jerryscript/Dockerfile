@@ -9,11 +9,11 @@ RUN python tools/build.py
 
 
 FROM alpine:3.18
+ARG timeRepo=http://dl-cdn.alpinelinux.org/alpine/edge/testing
 WORKDIR /jerry
 
-RUN apk --no-cache add perf
+RUN apk --no-cache -X $timeRepo add perf time
 
 COPY --from=build /jerry/build/bin/jerry /bin/
-COPY --from=build /jerry/tests/hello.js ./
 
 ENTRYPOINT ["jerry"]
