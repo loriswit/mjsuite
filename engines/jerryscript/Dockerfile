@@ -3,6 +3,7 @@ ARG srcPath
 WORKDIR /jerry
 
 RUN apk --no-cache add gcc musl-dev make cmake
+RUN ln -s /usr/bin/gcc /usr/bin/aarch64-linux-gnu-gcc
 
 COPY $srcPath ./
 RUN python tools/build.py
