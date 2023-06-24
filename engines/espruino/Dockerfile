@@ -15,7 +15,7 @@ RUN bash -c "source scripts/provision.sh ALL"
 COPY $srcPath .
 RUN RELEASE=1 make
 
-FROM ubuntu:jammy
+FROM ubuntu:22.10
 WORKDIR /espruino
 
 RUN apt-get update && apt-get install -qq -y linux-tools-generic time
