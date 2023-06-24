@@ -38,7 +38,7 @@ program
         const benchmark = new Benchmark(workloads, engines)
         const results = await benchmark.run()
 
-        const filename = `benchmark_${timestamp()}.json`
+        const filename = options.output ?? `benchmark_${timestamp()}.json`
         const data = JSON.stringify(results, null, 4)
         await writeFile(filename, data)
         logger.info("Saved results to " + filename)
