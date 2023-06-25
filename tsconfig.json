@@ -12,5 +12,10 @@
   },
   "ts-node": {
     "esm": true
-  }
+  },
+  "exclude": [
+    "bin",
+    "engines",
+    "workloads"
+  ]
 }
