@@ -36,6 +36,8 @@ The following options are available:
 - `-o`, `--output <filename>`: the output file that will store the results.
 - `-p`, `--plot`: display plots immediately after the benchmark is generated.
 
+The `--workload` and `--engine` options also support **negative** fitlering. For example, running `bin/mjsuite benchmark --engine !jerryscript` will select every engine **except** JerryScript.
+
 #### Engine
 
 To list all available engines, run:

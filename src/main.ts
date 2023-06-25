@@ -3,11 +3,12 @@ import {readFile, writeFile} from "fs/promises"
 
 import "./utils/globals.js"
 import {logger, LogLevel} from "./utils/logger.js"
+import {actionWrapper, parseFilter} from "./utils/cli.js"
+import {timestamp} from "./utils/helpers.js"
 import {Engine, EngineId} from "./commands/engine.js"
 import {Workload, WorkloadId} from "./commands/workload.js"
 import {Benchmark} from "./commands/benchmark.js"
 import {Plot} from "./commands/plot.js"
-import {timestamp} from "./utils/helpers.js"
 
 program
     .name("mjsuite")
@@ -29,10 +30,10 @@ program
     .option("-o, --output <filename>", "the output file that will store the results")
     .option("-p, --plot", "displays plots once the benchmark is generated")
     .action(actionWrapper(async (options: OptionValues) => {
-        const engineIds = options.engine ?? await Engine.getAllIds()
+        const engineIds = parseFilter(options.engine, await Engine.getAllIds())
         const engines = engineIds.map((id: EngineId) => new Engine(id))
 
-        const workloadIds = options.workload ?? await Workload.getAllIds()
+        const workloadIds = parseFilter(options.workload, await Workload.getAllIds())
         const workloads = workloadIds.map((id: WorkloadId) => new Workload(id))
 
         const benchmark = new Benchmark(workloads, engines)
@@ -93,21 +94,3 @@ program
 program.on("option:verbose", () => logger.logLevel = LogLevel.DEBUG)
 
 program.parse()
-
-function actionWrapper(action: (...args: any[]) => void | Promise<void>) {
-    return async (...args: any[]) => {
-        try {
-            await action(...args)
-        } catch (error: any) {
-            if (error.code === "ENOENT" && error.syscall === "connect")
-                logger.error("Connection to Docker Engine failed")
-            else {
-                logger.error("An error occurred!")
-                logger.error(error.message)
-            }
-            logger.debug(error)
-            logger.debug(error.stack)
-            process.exit(1)
-        }
-    }
-}
