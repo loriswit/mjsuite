@@ -19,13 +19,17 @@ export class Plot {
             {title: "Page faults", id: "pageFaults", scale: 1},
         ]
 
-        this.plots = stats.map(({title, id, scale}) => ({
+        this.plots = stats.map(({title, id: statId, scale}) => ({
             title,
-            plot: Object.entries(benchmark).map(([workloadId, stats]) => {
+            plot: Object.entries(benchmark).map(([workloadId, engineStats]) => {
+                // hide engines that don't provide this stat
+                const filtered = Object.fromEntries(Object.entries(engineStats)
+                    .filter(([_, stat]) => !!stat[statId]))
+
                 return {
                     name: workloadId,
-                    x: Object.keys(stats),
-                    y: Object.values(stats).map(stat => stat[id] * scale),
+                    x: Object.keys(filtered),
+                    y: Object.values(filtered).map(stat => stat[statId] * scale),
                     type: "bar",
                 }
             }),
