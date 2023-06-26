@@ -6,9 +6,15 @@
 
 ### Prerequisite
 
-To run μJSuite, all you need is Docker to be installed on your machine.
+To run μJSuite, all you need is **Docker** to be installed on the target machine.
 
-The first time you run μJSuite, it will automatically download dependencies and build the source code.
+Make sure the `perf_event_paranoid` system variable is set to 2 or lower, as some Linux distributions seem to set it higher by default. This is required for μJSuite to be able to measure performance statistics. To fix this, run the following command:
+
+```
+sudo sysctl -w kernel.perf_event_paranoid=2
+```
+
+There's no need to manually setup μJSuite. The first time you run the command line tool, it will automatically download dependencies and build the source code.
 
 ### Command line
 
@@ -36,7 +42,7 @@ The following options are available:
 - `-o`, `--output <filename>`: the output file that will store the results.
 - `-p`, `--plot`: display plots immediately after the benchmark is generated.
 
-The `--workload` and `--engine` options also support **negative** fitlering. For example, running `bin/mjsuite benchmark --engine !jerryscript` will select every engine **except** JerryScript.
+The `--workload` and `--engine` options also support **negative** filtering. For example, running `bin/mjsuite benchmark --engine !jerryscript` will select every engine **except** JerryScript.
 
 #### Engine
 
@@ -81,6 +87,18 @@ Workload finished in 853 ms
 Saved results to benchmark_2023-06-12_19-29-22.json
 ```
 
+### Current limitations
+
+Running `bin/mjsuite` will start μJSuite inside a Docker container, which may cause errors on ARM machines. If you get errors during the setup about `lzma-native`, try installing Node.js manually, then install dependencies, build the source code and run μJSuite by calling `node` directly:
+
+```
+npm install
+npm run build
+node build/main <arg...>
+```
+
+Drawing plots is also not supported inside Docker containers, so follow the same process if needed.
+
 ## Contributing
 
 ### Adding an engine
@@ -91,22 +109,22 @@ To add a new engine to the project, create a new folder in the `engines` directo
 
 Create a `manifest.json` containing an object with the following fields:
 
-- `name`: the name of the engine
-- `repository`: the GitHub repository of the engine, in the form `user/repo`
-- `version`: a git tag referencing the target version
+- `name`: the name of the engine.
+- `repository`: the **GitHub** repository of the engine, in the form `user/repo`.
+- `version`: a git tag referencing the target version. If the `sha` property is provided, this becomes just informative.
 - `sha` (optional): the target commit SHA hash, which will overwrite the version tag. Helpful when the repository doesn't provide tags.
 - `source` (optional): a URL to the source code. If set, μJSuite will download from this URL instead of GitHub. Helpful with embeddable engines that provide pre-processed packaged source code.
 - `clone` (optional): set to `true` to clone the repository instead of simply downloading it. This will take more time, but some engines require the source code to be in a git repository in order to be built.
 
-**Note**: when running μJSuite, the `engine` must match the name of the **folder**, not the name specified in the manifest.
+**Note**: when running μJSuite, the `engine` argument must match the name of the **folder**, not the name specified in the manifest.
 
 #### Dockerfile
 
 The Dockerfile must describe how to build the source code of the engine. When executed, the Dockerfile receives `srcPath` as an argument, which contains the full path to the source code. This argument can be used to copy the source code into the image (e.g., `COPY $srcPath ./`)
 
-Once the engine is compiled, we want the image to only contain the executable (and its dependencies, if any) without all the build tools and cache. This can be achieved with [multi-stage builds](https://docs.docker.com/build/building/multi-stage/). We also need the final image to include **both** the [perf](https://perf.wiki.kernel.org/) and [time](https://en.wikipedia.org/wiki/Time_(Unix)) tools
+Once the engine is compiled, we want the image to only contain the executable (and its dependencies, if any) without all the build tools and cache. This can be achieved with [multi-stage builds](https://docs.docker.com/build/building/multi-stage/). We also need the final image to include **both** the [Perf](https://perf.wiki.kernel.org/) and [GNU Time](https://www.gnu.org/software/time/) tools. Make sure to provide a version of GNU Time that is recent enough, as older versions are known to [report wrong measurements](https://bugzilla.redhat.com/show_bug.cgi?id=702826).
 
-The entry point of the container must be set to the engine executable file.
+The entry point of the container **must** be set to the engine executable file and must not include arguments.
 
 #### Workload template
 
@@ -127,9 +145,11 @@ If no adjustments are needed, there's no need to create this file.
 
 ### Adding a workload
 
-To add a new workload, create a JavaScript file in the `workloads` directory. The only requirement is that the workload must **print** the measured time (in milliseconds) to the standard output, which will be fetched by μJSuite.
+To add a new workload, simply create a JavaScript file in the `workloads` directory. As a convention, workloads should start with the line `var N = #`, which specifies the number of iterations in the workload.
 
-Note that if a workload prints multiple lines to the standard output, then only the **last line** will be considered by μJSuite as the measured time.
+Workloads should follow older ECMAScript standards so that most engines will be able to run it. Note that engines that can't process a workload will be skipped during benchmark generation.
+
+For now, workloads cannot depend on external source files or assets (i.e. images). The whole code and data must reside inside a single JavaScript file.
 
 ## Troubleshooting
 
