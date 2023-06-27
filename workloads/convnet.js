@@ -1,5 +1,8 @@
 var N = 5; // iterations
 
+// © 2014 Andrej Karpathy <andrej.karpathy@gmail.com> | MIT
+// https://github.com/karpathy/convnetjs
+
 var convnetjs = convnetjs || {REVISION: 'ALPHA'};
 (function (global) {
     "use strict";
