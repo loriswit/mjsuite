@@ -2,6 +2,8 @@
 
 μJSuite is a tool that can run different workloads on different IoT-friendly JavaScript engines. Each engine is automatically built from source and gets executed inside a Docker container. This tool can be used to generate benchmarks and compare the performances of different engines.
 
+You can find collections of generated benchmarks in [this repository](https://github.com/loriswit/mjsuite-benchmarks).
+
 ## Usage
 
 ### Prerequisite
